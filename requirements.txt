@@ -1,0 +1,40 @@
+# Instagram Follower Tracker — Python 3.10+ (developed and tested on 3.11)
+#
+#   python -m venv .venv
+#   source .venv/bin/activate        # Windows: .venv\Scripts\activate
+#   pip install -r requirements.txt
+#
+# Everything below the "Core" block is required. The two scraping backends are
+# optional extras — the default `demo` backend needs neither, so the project
+# installs and runs end-to-end from this file alone.
+
+# --- Core: database, dataframes, config, scheduling ------------------------
+SQLAlchemy>=2.0,<3.0        # ORM; the models use the 2.0 typed Mapped[] style
+pandas>=2.2,<3.0            # dashboard tables and the CSV/JSON exports
+python-dotenv>=1.0          # loads .env so secrets stay out of the source
+APScheduler>=3.10,<4.0      # periodic snapshots (scheduler.py)
+
+# --- Dashboard -------------------------------------------------------------
+streamlit>=1.49             # the UI in app.py (>=1.49 for the width="stretch" API)
+altair>=5.3                 # charts (ships with streamlit, pinned here explicitly)
+
+# --- Tests -----------------------------------------------------------------
+pytest>=8.0
+
+# --- OPTIONAL: live scraping backends --------------------------------------
+# Neither is needed for the demo backend, the test suite, or the dashboard.
+# Install whichever backend you intend to use:
+#
+#   IG_SCRAPER_BACKEND=playwright
+#     pip install playwright>=1.45
+#     playwright install chromium        # ~150 MB browser download
+#
+#   IG_SCRAPER_BACKEND=instaloader
+#     pip install instaloader>=4.12
+#
+# playwright>=1.45
+# instaloader>=4.12
+
+# --- OPTIONAL: PostgreSQL instead of the default SQLite --------------------
+# Set IG_DATABASE_URL=postgresql+psycopg2://user:pass@localhost/tracker
+# psycopg2-binary>=2.9.9
