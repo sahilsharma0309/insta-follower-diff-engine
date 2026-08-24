@@ -217,6 +217,84 @@ precision.
 
 ---
 
+## Deploying the dashboard
+
+The dashboard deploys to [Streamlit Community Cloud](https://share.streamlit.io)
+as-is — `app.py` and `requirements.txt` are already at the repo root. Point it
+at this repo, branch `main`, main file `app.py`.
+
+**One thing to understand first: that platform's filesystem is ephemeral.** The
+container is wiped on every reboot and redeploy, and the app sleeps after
+inactivity. A SQLite database under `runtime/` does not survive any of that —
+which matters here more than in most apps, because accumulated history *is* the
+product. Only the schedule of snapshots creates value, and a wiped database
+starts from zero every time.
+
+So there are two sensible deployments:
+
+### A. Demo / portfolio — SQLite, disposable
+
+Nothing to configure. Deploy it, and the empty state offers a **Load demo
+data** button that generates synthetic history in place (there is no shell on
+a hosted deployment, so the button is the only way in). Data resets whenever
+the container restarts, which is fine for a demo.
+
+### B. Real tracking — Postgres, persistent
+
+The dashboard is stateless; move the state somewhere that survives.
+
+1. **Create a free Postgres** (Neon, Supabase, and Railway all have a free
+   tier). Copy the connection string.
+2. **Uncomment `psycopg2-binary` in `requirements.txt`.** Streamlit Cloud
+   installs exactly that file, and SQLAlchemy imports the driver eagerly when
+   it builds the engine — so a commented-out driver means the app fails to
+   start at all, with `ModuleNotFoundError: No module named 'psycopg2'`.
+3. **Add secrets** in the app's *Settings → Secrets*:
+
+   ```toml
+   IG_DATABASE_URL = "postgresql+psycopg2://user:pass@host:5432/tracker"
+   IG_ENABLE_DEMO_SEED = "false"
+   IG_ENABLE_WRITE_ACTIONS = "false"
+   ```
+
+   Those last two matter. A Streamlit Community Cloud app is **public** —
+   anyone with the URL can use every button on it. Left on, a visitor could
+   write synthetic rows into your real database, spend your hourly request
+   budget, or drive a scrape through your logged-in session. Turn them off and
+   the deployment becomes a read-only window onto the data.
+
+4. **Run the scraper somewhere else** — see below.
+
+Do **not** put `IG_USERNAME` / `IG_PASSWORD` in a public app's secrets. They
+are not needed there: the deployed dashboard only reads.
+
+### Where to run the scheduler
+
+Snapshots do not happen on Streamlit Cloud. Only the Streamlit process runs
+there, so `scheduler.py` never starts and nothing is ever collected.
+
+Run it on a machine you control, pointed at the same database:
+
+```bash
+IG_DATABASE_URL="postgresql+psycopg2://…" python scheduler.py
+```
+
+```
+your machine / Pi                cloud Postgres            Streamlit Cloud
+  scheduler.py  ──── writes ────▶   history   ◀──── reads ──── dashboard
+  (session cookies,                                            (read-only,
+   residential IP)                                              public URL)
+```
+
+A home machine or a Raspberry Pi is genuinely the better host here, not just
+the cheap one: Instagram treats datacenter IP ranges far more harshly than
+residential ones, so the same polite request rate that runs for weeks from a
+home connection can get challenged quickly from a cloud VM or a CI runner.
+That applies to a GitHub Actions cron too — it works, but expect it to hit
+checkpoints sooner.
+
+---
+
 ## CLI
 
 ```bash
@@ -251,6 +329,11 @@ The ones you are most likely to touch:
 | `IG_MAX_FOLLOWERS_PER_RUN` | `0` (unlimited) | Cap; a capped run is `PARTIAL` |
 | `IG_PROXY_SERVER` | — | e.g. `http://host:8000` |
 | `IG_MAX_UNFOLLOW_RATIO` | `0.5` | Implausible-collapse threshold |
+| `IG_ENABLE_DEMO_SEED` | `true` | Offer demo seeding when the DB is empty |
+| `IG_ENABLE_WRITE_ACTIONS` | `true` | Allow adding targets / scraping from the UI |
+
+Set the last two to `false` on any public deployment — see
+[Deploying the dashboard](#deploying-the-dashboard).
 
 ---
 

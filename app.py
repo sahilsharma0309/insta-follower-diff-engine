@@ -302,26 +302,66 @@ targets = load_targets()
 st.sidebar.title("📊 Follower Tracker")
 
 if not targets:
+    # The empty state has to be self-service. On a hosted deployment there is
+    # no shell to run `cli.py` in, so an empty database would otherwise be a
+    # dead end — the page would tell you to run a command you cannot run.
     st.sidebar.info("No profiles are being tracked yet.")
     st.title("Instagram Follower Tracker")
-    st.warning("There is nothing to display — the database has no targets yet.")
-    st.markdown(
-        """
-### Get started in one command
+    st.caption("The database is empty. Load synthetic history, or start tracking a profile.")
 
-Generate three weeks of synthetic history and reload this page:
+    demo_col, real_col = st.columns(2)
 
-```bash
-python cli.py seed-demo
-```
+    with demo_col:
+        st.subheader("Explore with demo data")
+        st.write(
+            "Generates a few weeks of synthetic snapshots — no Instagram account, "
+            "no network. Everything in the dashboard becomes explorable immediately."
+        )
+        if settings.enable_demo_seed:
+            # 14 days generates ~340 snapshots per target. Kept modest because
+            # this runs synchronously in the request: on a small hosted
+            # container 30 days is a ~40 s wait staring at a spinner.
+            demo_days = st.slider("Days of history", 7, 30, 14, key="seed_days")
+            if st.button("Load demo data", type="primary", width="stretch"):
+                from seed_demo import seed
 
-Or start tracking a real profile:
+                with st.spinner(f"Generating {demo_days} days of history…"):
+                    seed(
+                        ["campus_confessions", "city_secrets_page"],
+                        days=demo_days,
+                        reset=True,
+                    )
+                st.rerun()
+        else:
+            st.info("Demo seeding is disabled here (`IG_ENABLE_DEMO_SEED=false`).")
 
-```bash
-python cli.py add-target some_public_page
-python cli.py snapshot --backend playwright
-```
-        """
+    with real_col:
+        st.subheader("Track a real profile")
+        if settings.enable_write_actions:
+            new_target = st.text_input(
+                "Public profile handle",
+                placeholder="some_public_page",
+                key="empty_add_target",
+            )
+            if st.button("Start tracking", width="stretch", disabled=not new_target):
+                from tracker import get_or_create_target
+
+                with session_scope() as bootstrap_session:
+                    get_or_create_target(bootstrap_session, new_target)
+                st.success(f"Tracking @{new_target.strip().lstrip('@').lower()}")
+                st.rerun()
+            st.caption(
+                f"Adding a target only registers it. The first snapshot runs on the "
+                f"next scheduled pass, or from the sidebar button — currently using "
+                f"the **{settings.scraper_backend}** backend."
+            )
+        else:
+            st.info("Write actions are disabled here (`IG_ENABLE_WRITE_ACTIONS=false`).")
+
+    st.divider()
+    st.caption(
+        "Prefer the command line? `python cli.py seed-demo` or "
+        "`python cli.py add-target <handle>` do the same thing."
     )
     st.stop()
 
@@ -336,13 +376,27 @@ target_username = str(target["username"])
 
 st.sidebar.caption(f"Backend: `{settings.scraper_backend}`  ·  every {settings.scrape_interval_minutes} min")
 
-if st.sidebar.button("Run snapshot now", width="stretch", type="primary"):
-    with st.spinner(f"Scraping @{target_username}…"):
-        message = run_snapshot_now(target_username)
-    if message.lower().startswith("snapshot failed"):
-        st.sidebar.error(message)
-    else:
-        st.sidebar.success(message)
+if settings.enable_write_actions:
+    if st.sidebar.button("Run snapshot now", width="stretch", type="primary"):
+        with st.spinner(f"Scraping @{target_username}…"):
+            message = run_snapshot_now(target_username)
+        if message.lower().startswith("snapshot failed"):
+            st.sidebar.error(message)
+        else:
+            st.sidebar.success(message)
+
+    with st.sidebar.expander("Track another profile"):
+        another = st.text_input("Handle", placeholder="some_public_page", key="add_target")
+        if st.button("Add target", width="stretch", disabled=not another):
+            from tracker import get_or_create_target
+
+            with session_scope() as add_session:
+                get_or_create_target(add_session, another)
+            st.rerun()
+else:
+    # A public deployment is read-only: otherwise any visitor could spend the
+    # request budget, or drive a live scrape through your logged-in session.
+    st.sidebar.caption("Read-only deployment — scraping is driven elsewhere.")
 
 st.sidebar.divider()
 
