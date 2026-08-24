@@ -216,3 +216,23 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---------------------------------------------------------------------------
+# Instagram Follower Tracker — runtime artifacts
+# ---------------------------------------------------------------------------
+# Everything the tool generates at runtime lives here: the database, exported
+# CSV/JSON, logs, and — critically — the saved login cookies. A storage_state
+# file is credential-equivalent: anyone holding it is logged in as you.
+runtime/
+
+# Databases, wherever IG_DATA_DIR happens to point.
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+
+# Saved sessions, belt and braces in case IG_SESSION_DIR is moved elsewhere.
+*.storage.json
+*.instaloader
+sessions/
