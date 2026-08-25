@@ -36,5 +36,11 @@ pytest>=8.0
 # instaloader>=4.12
 
 # --- OPTIONAL: PostgreSQL instead of the default SQLite --------------------
-# Set IG_DATABASE_URL=postgresql+psycopg2://user:pass@localhost/tracker
+# Needed only if IG_DATABASE_URL points at Postgres:
+#   IG_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/tracker
+#
+# UNCOMMENT THE LINE BELOW BEFORE DEPLOYING TO STREAMLIT COMMUNITY CLOUD with
+# Postgres. That platform installs exactly this file and nothing else, and
+# SQLAlchemy imports the driver when it builds the engine — so leaving this
+# commented out means the app fails to start, not that it degrades gracefully.
 # psycopg2-binary>=2.9.9

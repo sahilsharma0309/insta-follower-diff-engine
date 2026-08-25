@@ -219,6 +219,17 @@ class Settings:
     #: entirely ordinary — so the guard needs an absolute floor as well.
     min_unfollows_for_guard: int
 
+    # --- Dashboard ---------------------------------------------------------
+    #: Whether the dashboard offers to generate synthetic history when the
+    #: database is empty. Wanted on a demo deployment (there is no CLI on
+    #: Streamlit Cloud, so it is the only way to populate the page); turn it
+    #: OFF on a real deployment so nobody can write fake rows into live data.
+    enable_demo_seed: bool
+    #: Whether the dashboard can add targets and trigger scrapes. Also worth
+    #: disabling on a public deployment — otherwise any visitor can spend your
+    #: request budget, and on a live backend, use your logged-in session.
+    enable_write_actions: bool
+
     # --- Derived ----------------------------------------------------------
     extra: dict[str, str] = field(default_factory=dict, repr=False)
 
@@ -353,6 +364,8 @@ def load_settings() -> Settings:
         run_on_start=_env_bool("IG_RUN_ON_START", True),
         max_unfollow_ratio=_env_float("IG_MAX_UNFOLLOW_RATIO", 0.5, minimum=0.0),
         min_unfollows_for_guard=_env_int("IG_MIN_UNFOLLOWS_FOR_GUARD", 10, minimum=1),
+        enable_demo_seed=_env_bool("IG_ENABLE_DEMO_SEED", True),
+        enable_write_actions=_env_bool("IG_ENABLE_WRITE_ACTIONS", True),
     )
     return settings
 

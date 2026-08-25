@@ -103,6 +103,21 @@ class TestLoadSettings:
         with pytest.raises(ConfigError, match="No targets"):
             load_settings().validate_for_live_scrape()
 
+    def test_dashboard_write_flags_default_on_and_can_be_disabled(
+        self, monkeypatch, tmp_path
+    ):
+        """A public deployment must be able to lock the dashboard read-only."""
+        monkeypatch.setenv("IG_DATA_DIR", str(tmp_path))
+        settings = load_settings()
+        assert settings.enable_demo_seed is True
+        assert settings.enable_write_actions is True
+
+        monkeypatch.setenv("IG_ENABLE_DEMO_SEED", "false")
+        monkeypatch.setenv("IG_ENABLE_WRITE_ACTIONS", "false")
+        settings = load_settings()
+        assert settings.enable_demo_seed is False
+        assert settings.enable_write_actions is False
+
     def test_session_path_is_keyed_by_account(self, monkeypatch, tmp_path):
         monkeypatch.setenv("IG_DATA_DIR", str(tmp_path))
         monkeypatch.setenv("IG_USERNAME", "someaccount")
